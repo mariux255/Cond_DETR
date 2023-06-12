@@ -69,7 +69,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+    F1, TP, total_pred_count, total_spindle_count = f1_calculate(model, device, data_loader)
+    row = {'F1': F1, 'TP': TP, 'Total pred': total_pred_count, 'Total spindle': total_spindle_count}
+
+    return row, {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
 @torch.no_grad()
@@ -134,6 +138,11 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
+
+
+    F1, TP, total_pred_count, total_spindle_count = f1_calculate(model, device, data_loader)
+    row = {'F1': F1, 'TP': TP, 'Total pred': total_pred_count, 'Total spindle': total_spindle_count}
+
     if coco_evaluator is not None:
         coco_evaluator.synchronize_between_processes()
     if panoptic_evaluator is not None:
@@ -156,4 +165,144 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         stats['PQ_all'] = panoptic_res["All"]
         stats['PQ_th'] = panoptic_res["Things"]
         stats['PQ_st'] = panoptic_res["Stuff"]
-    return stats, coco_evaluator
+    return row, stats, coco_evaluator
+
+def pred_stats(outputs, targets):
+    
+    # Loop through batches to compute F1 score through training.
+
+    
+    F1_list = []
+    temp_tp = 0
+    total_spindle_count = 0
+    total_pred_count = 0
+    for i in range(outputs['pred_logits'].shape[0]):
+        probas = outputs['pred_logits'].softmax(-1)[i,:,:-1]
+        keep = probas.max(-1).values > 0.8
+        kept_boxes = outputs['pred_boxes'][i,keep]
+        target_bbox = targets[i]['boxes']
+        
+        TP = 0
+        
+        target_bbox = target_bbox.cpu()
+        target_bbox = target_bbox.numpy()
+        total_spindle_count += target_bbox.shape[0]
+        total_pred_count += len(kept_boxes)
+        for k in range(target_bbox.shape[0]):
+            tar_box = target_bbox[k,:]
+            tar_box_start = tar_box[0] - tar_box[1]/2
+            tar_box_end = tar_box[0] + tar_box[1]/2
+            
+            best_match = -1
+            
+            if len(kept_boxes) == 0:
+                continue
+            
+            for j,out_box in enumerate(kept_boxes):
+                out_box_start = out_box[0] - out_box[1]/2
+                out_box_end = out_box[0] + out_box[1]/2
+
+                if ((out_box_end > tar_box_start) and (out_box_start <= tar_box_start)):
+                    if iou(out_box, tar_box) > iou(kept_boxes[best_match], tar_box):
+                        best_match = j
+            
+            if iou(kept_boxes[best_match],tar_box) > 0.2:
+                TP +=1
+            
+
+        # FP = total_pred_count - TP
+        # FN = total_spindle_count - TP
+        
+        # if (TP + FP) == 0:
+        #     PRECISION = TP
+        # else:
+        #     PRECISION = (TP)/(TP + FP)
+        
+        # RECALL = (TP)/(TP+FN)
+
+        # if (PRECISION + RECALL) == 0:
+        #     F1_list.append(0)
+        # else:
+        #     F1_list.append((2 * PRECISION * RECALL)/(PRECISION + RECALL))
+        
+        temp_tp += TP
+
+
+    #F1_list = np.asarray(F1_list)
+    #print("F1 MEAN:", np.mean(F1_list), " F1 STD:", np.std(F1_list), " TP:", temp_tp, " FP:", FP, " Number of spindles:", total_spindle_count)
+    return (temp_tp, total_pred_count, total_spindle_count)
+
+def f1_calculate(model, device, dataloader):
+    TP = 0
+    total_pred_count = 0
+    total_spindle_count = 0
+    for samples, targets in dataloader:
+        samples = samples.to(device)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        outputs = model(samples)
+
+        temp_tp, temp_pred_count, temp_spindle_count = pred_stats(outputs, targets)
+        TP += temp_tp
+        total_pred_count += temp_pred_count
+        total_spindle_count += temp_spindle_count
+    
+    f1 = f1_score(TP, total_pred_count, total_spindle_count)
+
+    print("F1 score:", f1, " True positives:", TP, " Total predictions:", total_pred_count, " Total spindles:", total_spindle_count)
+
+    return (f1, TP, total_pred_count, total_spindle_count)
+        
+
+
+def f1_score(TP, total_pred_count, total_spindle_count):
+    
+    FP = total_pred_count - TP
+    FN = total_spindle_count - TP
+        
+    if (TP + FP) == 0:
+        PRECISION = TP
+    else:
+        PRECISION = (TP)/(TP + FP)
+        
+    RECALL = (TP)/(TP+FN)
+
+    if (PRECISION + RECALL) == 0:
+            F1 = 0
+    else:
+         F1 = (2 * PRECISION * RECALL)/(PRECISION + RECALL)
+
+    return F1
+
+
+
+def iou(out,tar):
+    out_box_start = out[0] - out[1]/2
+    out_box_end = out[0] + out[1]/2
+
+    tar_box_start = tar[0] - tar[1]/2
+    tar_box_end = tar[0] + tar[1]/2
+
+    overlap_start = max(out_box_start, tar_box_start)
+    overlap_end = min(out_box_end, tar_box_end)
+    union_start = min(out_box_start, tar_box_start)
+    union_end = max(out_box_end, tar_box_end)
+
+    return ((overlap_end - overlap_start)/(union_end-union_start))
+
+def overlap(out, tar, threshold):
+    out_box_start = out[0] - out[1]/2
+    out_box_end = out[0] + out[1]/2
+
+    tar_box_start = tar[0] - tar[1]/2
+    tar_box_end = tar[0] + tar[1]/2
+
+    overlap_start = max(out_box_start, tar_box_start)
+    overlap_end = min(out_box_end, tar_box_end)
+    union_start = min(out_box_start, tar_box_start)
+    union_end = max(out_box_end, tar_box_end)
+
+    if (overlap_end - overlap_start) >= (threshold * (tar_box_end-tar_box_start)):
+        return True
+    else:
+        return False
