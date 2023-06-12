@@ -1,4 +1,12 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# ------------------------------------------------------------------------
+# Conditional DETR
+# Copyright (c) 2021 Microsoft. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
+# ------------------------------------------------------------------------
+# Copied from DETR (https://github.com/facebookresearch/detr)
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+# ------------------------------------------------------------------------
+
 """
 COCO dataset which returns image_id for evaluation.
 
@@ -149,8 +157,9 @@ def build(image_set, args):
     assert root.exists(), f'provided COCO path {root} does not exist'
     mode = 'instances'
     PATHS = {
-        "train": (root / "train2017", root / "annotations" / f'{mode}_train2017.json'),
-        "val": (root / "val2017", root / "annotations" / f'{mode}_val2017.json'),
+        "train": (root / "images" / "train2017", root / "annotations" / f'{mode}_train2017.json'),
+        "val": (root / "images" / "val2017", root / "annotations" / f'{mode}_val2017.json'),
+        "test": (root / "images" / "test2017", root / "annotations" / f'image_info_test-dev2017.json'),
     }
 
     img_folder, ann_file = PATHS[image_set]
