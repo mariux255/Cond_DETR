@@ -1,5 +1,5 @@
 import torch
-from scipy.signal import butter, sosfilt, sosfreqz
+from scipy.signal import butter, sosfilt, sosfreqz, resample
 import scipy.io
 import random
 from torch.utils.data import Dataset, DataLoader
@@ -47,11 +47,14 @@ class dreams_dataset(Dataset):
         #print(self.input_dict[idx])
         food, labels = self.master_path_list[idx]
         fourier_array = np.load(food)
+
+        #fourier_array = resample(fourier_array, int(100*len(fourier_array)/256))
         # Standardize
         fourier_array = (fourier_array - np.mean(fourier_array))/np.std(fourier_array)
 
         fourier_array = torch.tensor(fourier_array)
         fourier_array = fourier_array[None, :]
+        
 
         #print('dataloader shape')
 

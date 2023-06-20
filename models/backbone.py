@@ -39,37 +39,50 @@ class Backbone(nn.Module):
         n_groups = 8
         
         # ENCODER GROUND LEVEL (LEVEL 1)
-        self.conv_1_1 = nn.Conv1d(1, 64, kernel_size = 5, stride = 2, dilation = 2)
-        self.batch_1_1 = nn.GroupNorm(n_groups, 64)
+        self.conv_1_1 = nn.Conv1d(1, 32, kernel_size = 5, dilation = 2)
+        self.batch_1_1 = nn.BatchNorm1d(32)
 
-        self.conv_1_2 = nn.Conv1d(64, 128, kernel_size = 5, dilation = 2)
-        self.batch_1_2 = nn.GroupNorm(n_groups, 128)
+        self.conv_1_2 = nn.Conv1d(32, 32, kernel_size = 5, dilation = 2)
+        self.batch_1_2 = nn.BatchNorm1d(32)
 
 
         # ENCODER BOTTOM LEVEL
-        self.pool_1 = nn.MaxPool1d(kernel_size = 4)
+        self.pool_1 = nn.MaxPool1d(kernel_size = 2)
 
-        self.conv_2_1 = nn.Conv1d(128, 256, kernel_size = 5, dilation = 2, padding = 'same')
-        self.batch_2_1 = nn.GroupNorm(n_groups, 256)
+        self.conv_2_1 = nn.Conv1d(32, 64, kernel_size = 5, dilation = 2, padding = 'same')
+        self.batch_2_1 = nn.BatchNorm1d(64)
 
-        self.conv_2_2 = nn.Conv1d(256, 256, kernel_size = 5, dilation = 2, padding = 'same')
-        self.batch_2_2 = nn.GroupNorm(n_groups, 256)
+        self.conv_2_2 = nn.Conv1d(64, 64, kernel_size = 5, dilation = 2, padding = 'same')
+        self.batch_2_2 = nn.BatchNorm1d(64)
 
         
         # DECODER GROUND LEVEL (LEVEL 1)
         # UPSAMPLING
-        self.upsample_1 = nn.Upsample(scale_factor = 4, mode = 'nearest')
-        self.conv_1_3 = nn.Conv1d(256, 128, kernel_size = 4, dilation = 1, padding = 'same')
+        self.upsample_1 = nn.Upsample(scale_factor = 2, mode = 'nearest')
+        self.conv_1_3 = nn.Conv1d(64, 32, kernel_size = 2, dilation = 1, padding = 'same')
 
         # 
-        self.conv_1_4 = nn.Conv1d(256, 128, kernel_size = 5, dilation = 1)
-        self.batch_1_4 = nn.GroupNorm(n_groups, 128)
+        self.conv_1_4 = nn.Conv1d(64, 32, kernel_size = 5, dilation = 1)
+        self.batch_1_4 = nn.BatchNorm1d(32)
 
-        self.conv_1_5 = nn.Conv1d(128, 128, kernel_size = 5, dilation = 1)
-        self.batch_1_5 = nn.GroupNorm(n_groups, 128)
+        self.conv_1_5 = nn.Conv1d(32, 32, kernel_size = 5, dilation = 1)
+        self.batch_1_5 = nn.BatchNorm1d(32)
+
+
+        #self.conv_1 = nn.Conv1d(1, 64, kernel_size = 5, stride = 2, dilation = 2)
+        #self.batch_1 = nn.BatchNorm1d(128)
+
+        #self.conv_2 = nn.Conv1d(64, 128, kernel_size = 5, stride = 2, dilation = 2)
+        #self.batch_2 = nn.BatchNorm1d(128)
+
+        #self.conv_3 = nn.Conv1d(128, 256, kernel_size = 5, stride = 2, dilation = 2)
+        #self.batch_3 = nn.BatchNorm1d(128)
         
 
-        self.num_channels = 128
+        self.num_channels = 32
+
+
+
     def forward(self, tensor_list: NestedTensor):
         # GROUND LEVEL FORWARD
         level_1 = self.batch_1_1(F.relu(self.conv_1_1(tensor_list.tensors)))
@@ -111,6 +124,45 @@ class Backbone(nn.Module):
         return out
 
 
+class Backbone(nn.Module):
+    def __init__(self):
+        super().__init__()
+        n_groups = 8
+        
+        # ENCODER GROUND LEVEL (LEVEL 1)
+        self.conv_1 = nn.Conv1d(1, 64, kernel_size = 3, dilation = 1)
+        self.batch_1 = nn.BatchNorm1d(64)
+
+        self.conv_2 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
+        self.batch_2 = nn.BatchNorm1d(64)
+
+        self.conv_3 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
+        self.batch_3 = nn.BatchNorm1d(64)
+
+        
+
+        self.num_channels = 64
+
+
+
+    def forward(self, tensor_list: NestedTensor):
+        # GROUND LEVEL FORWARD
+        features = self.batch_1(F.relu(self.conv_1(tensor_list.tensors)))
+        features = self.batch_2(F.relu(self.conv_2(features)))
+        features = self.batch_3(F.relu(self.conv_3(features)))
+
+        
+        #xs = self.body(tensor_list.tensors)
+        out: Dict[str, NestedTensor] = {}
+        
+        x = features[:,:,None,:]
+        m = tensor_list.mask
+        assert m is not None
+        mask = F.interpolate(m[None].float(), size=x.shape[-1:]).to(torch.bool)[0]
+        out['CNN_OUT'] = NestedTensor(x, mask)
+        return out
+
+
 class building_block(nn.Module):
     def __init__(self, in_channels, out_channels, k_size = 1, pool_k_size = 1,conv_padd = 0):
         super(building_block, self).__init__()
@@ -132,5 +184,5 @@ def build_backbone(args):
     backbone = Backbone()
     model = Joiner(backbone, position_embedding)
     #model.num_channels = backbone.num_channels
-    model.num_channels = 128
+    model.num_channels = 64
     return model

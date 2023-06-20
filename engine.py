@@ -20,7 +20,8 @@ import torch
 import util.misc as utils
 from datasets.coco_eval import CocoEvaluator
 from datasets.panoptic_eval import PanopticEvaluator
-
+import numpy as np
+from util import box_ops
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -70,6 +71,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
 
+    # Checking if learns to predict spindles
+
+    #probs = outputs['pred_logits'].sigmoid()
+    #probs = probs.cpu().detach()
+    #probs = np.asarray(probs)
+
+    #print(np.amax(probs, axis = 1))
+
     F1, TP, total_pred_count, total_spindle_count = f1_calculate(model, device, data_loader)
     row = {'F1': F1, 'TP': TP, 'Total pred': total_pred_count, 'Total spindle': total_spindle_count}
 
@@ -116,55 +125,27 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
                              **loss_dict_reduced_unscaled)
         metric_logger.update(class_error=loss_dict_reduced['class_error'])
 
-        orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
-        results = postprocessors['bbox'](outputs, orig_target_sizes)
-        if 'segm' in postprocessors.keys():
-            target_sizes = torch.stack([t["size"] for t in targets], dim=0)
-            results = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
-        res = {target['image_id'].item(): output for target, output in zip(targets, results)}
-        if coco_evaluator is not None:
-            coco_evaluator.update(res)
-
-        if panoptic_evaluator is not None:
-            res_pano = postprocessors["panoptic"](outputs, target_sizes, orig_target_sizes)
-            for i, target in enumerate(targets):
-                image_id = target["image_id"].item()
-                file_name = f"{image_id:012d}.png"
-                res_pano[i]["image_id"] = image_id
-                res_pano[i]["file_name"] = file_name
-
-            panoptic_evaluator.update(res_pano)
+        #orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+        
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
 
+    #probs = outputs['pred_logits'].sigmoid()
+    #probs = probs.cpu().detach()
+    #probs = np.asarray(probs)
+
+    #print(np.amax(probs, axis = 1))
+
 
     F1, TP, total_pred_count, total_spindle_count = f1_calculate(model, device, data_loader)
     row = {'F1': F1, 'TP': TP, 'Total pred': total_pred_count, 'Total spindle': total_spindle_count}
 
-    if coco_evaluator is not None:
-        coco_evaluator.synchronize_between_processes()
-    if panoptic_evaluator is not None:
-        panoptic_evaluator.synchronize_between_processes()
 
-    # accumulate predictions from all images
-    if coco_evaluator is not None:
-        coco_evaluator.accumulate()
-        coco_evaluator.summarize()
-    panoptic_res = None
-    if panoptic_evaluator is not None:
-        panoptic_res = panoptic_evaluator.summarize()
+   
     stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    if coco_evaluator is not None:
-        if 'bbox' in postprocessors.keys():
-            stats['coco_eval_bbox'] = coco_evaluator.coco_eval['bbox'].stats.tolist()
-        if 'segm' in postprocessors.keys():
-            stats['coco_eval_masks'] = coco_evaluator.coco_eval['segm'].stats.tolist()
-    if panoptic_res is not None:
-        stats['PQ_all'] = panoptic_res["All"]
-        stats['PQ_th'] = panoptic_res["Things"]
-        stats['PQ_st'] = panoptic_res["Stuff"]
+    
     return row, stats, coco_evaluator
 
 def pred_stats(outputs, targets):
@@ -176,10 +157,26 @@ def pred_stats(outputs, targets):
     temp_tp = 0
     total_spindle_count = 0
     total_pred_count = 0
-    for i in range(outputs['pred_logits'].shape[0]):
-        probas = outputs['pred_logits'].softmax(-1)[i,:,:-1]
-        keep = probas.max(-1).values > 0.8
-        kept_boxes = outputs['pred_boxes'][i,keep]
+
+    out_logits = outputs['pred_logits']
+    prob = out_logits.sigmoid()
+    topk_values, topk_indexes = torch.topk(prob.view(out_logits.shape[0], -1), 3, dim=1)
+    scores = topk_values
+    print(torch.mean(scores, 0))
+    topk_boxes = topk_indexes // out_logits.shape[2]
+        
+    boxes = outputs['pred_boxes'][:,:,:].detach().cpu().numpy()
+    topk_indexes = topk_boxes.cpu().numpy()
+    #print(topk_indexes.shape)
+    #print(boxes.shape)
+
+
+    #print(scores)
+    #print(topk_boxes[0,0])
+    #print(outputs['pred_boxes'][0,topk_boxes[0,0]])
+    for i in range(topk_indexes.shape[0]):
+        idxs = topk_indexes[i,:]
+        kept_boxes = boxes[i, idxs]
         target_bbox = targets[i]['boxes']
         
         TP = 0
@@ -202,13 +199,11 @@ def pred_stats(outputs, targets):
                 out_box_start = out_box[0] - out_box[1]/2
                 out_box_end = out_box[0] + out_box[1]/2
 
-                if ((out_box_end > tar_box_start) and (out_box_start <= tar_box_start)):
-                    if iou(out_box, tar_box) > iou(kept_boxes[best_match], tar_box):
-                        best_match = j
+                if iou(out_box, tar_box) > iou(kept_boxes[best_match], tar_box):
+                    best_match = j
             
             if iou(kept_boxes[best_match],tar_box) > 0.2:
-                TP +=1
-            
+                TP +=1            
 
         # FP = total_pred_count - TP
         # FN = total_spindle_count - TP
@@ -226,7 +221,7 @@ def pred_stats(outputs, targets):
         #     F1_list.append((2 * PRECISION * RECALL)/(PRECISION + RECALL))
         
         temp_tp += TP
-
+    #print(kept_boxes)
 
     #F1_list = np.asarray(F1_list)
     #print("F1 MEAN:", np.mean(F1_list), " F1 STD:", np.std(F1_list), " TP:", temp_tp, " FP:", FP, " Number of spindles:", total_spindle_count)
@@ -290,19 +285,18 @@ def iou(out,tar):
 
     return ((overlap_end - overlap_start)/(union_end-union_start))
 
-def overlap(out, tar, threshold):
+def overlap(out, tar):
     out_box_start = out[0] - out[1]/2
     out_box_end = out[0] + out[1]/2
 
     tar_box_start = tar[0] - tar[1]/2
     tar_box_end = tar[0] + tar[1]/2
 
+    #print(out)
+    #print(tar)
     overlap_start = max(out_box_start, tar_box_start)
     overlap_end = min(out_box_end, tar_box_end)
     union_start = min(out_box_start, tar_box_start)
     union_end = max(out_box_end, tar_box_end)
 
-    if (overlap_end - overlap_start) >= (threshold * (tar_box_end-tar_box_start)):
-        return True
-    else:
-        return False
+    return (overlap_end - overlap_start) / ((tar_box_end-tar_box_start))
