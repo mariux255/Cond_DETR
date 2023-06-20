@@ -34,7 +34,7 @@ def get_args_parser():
     parser.add_argument('--lr_backbone', default=1e-4, type=float)
     parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--weight_decay', default=0, type=float)
-    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--epochs', default=80, type=int)
     parser.add_argument('--lr_drop', default=160, type=int)
     parser.add_argument('--clip_max_norm', default=0, type=float,
                         help='gradient clipping max norm')
@@ -248,11 +248,11 @@ def main(args):
             model, criterion, data_loader_train, optimizer, device, epoch,
             args.clip_max_norm)
 
-        #f1_df_train = f1_df_train.append(f1_stats, ignore_index = True)
+        f1_df_train = f1_df_train.append(f1_stats, ignore_index = True)
 
         #print(f1_df)        
         #lr_scheduler.step()
-        if epoch == 60:
+        if epoch == 50:
             # Lr transformer
             optimizer.param_groups[0]['lr'] = 1e-4
             # Lr backbone
@@ -260,7 +260,7 @@ def main(args):
             print("LR of model changed to ", optimizer.param_groups[0]['lr'])
             print("LR of backbone changed to ", optimizer.param_groups[1]['lr'])
         
-        if epoch == 80:
+        if epoch == 70:
             # Lr transformer
             optimizer.param_groups[0]['lr'] = 1e-5
             # Lr backbone

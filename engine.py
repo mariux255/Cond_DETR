@@ -162,7 +162,7 @@ def pred_stats(outputs, targets):
     prob = out_logits.sigmoid()
     topk_values, topk_indexes = torch.topk(prob.view(out_logits.shape[0], -1), 3, dim=1)
     scores = topk_values
-    print(torch.mean(scores, 0))
+    #print(torch.mean(scores, 0))
     topk_boxes = topk_indexes // out_logits.shape[2]
         
     boxes = outputs['pred_boxes'][:,:,:].detach().cpu().numpy()
