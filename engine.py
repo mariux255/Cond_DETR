@@ -185,6 +185,7 @@ def pred_stats(outputs, targets):
         target_bbox = target_bbox.numpy()
         total_spindle_count += target_bbox.shape[0]
         total_pred_count += len(kept_boxes)
+        kept_boxes = np.asarray(kept_boxes)
         for k in range(target_bbox.shape[0]):
             tar_box = target_bbox[k,:]
             tar_box_start = tar_box[0] - tar_box[1]/2
@@ -203,7 +204,9 @@ def pred_stats(outputs, targets):
                     best_match = j
             
             if (overlap(kept_boxes[best_match],tar_box) > 0.2) and (iou(kept_boxes[best_match],tar_box) > 0.1):
-                TP +=1            
+                TP +=1     
+
+                kept_boxes = np.delete(kept_boxes, best_match, 0)       
 
         # FP = total_pred_count - TP
         # FN = total_spindle_count - TP

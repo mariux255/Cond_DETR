@@ -136,8 +136,8 @@ class Backbone(nn.Module):
         self.conv_2 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
         self.batch_2 = nn.BatchNorm1d(64)
 
-        #self.conv_3 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
-        #self.batch_3 = nn.BatchNorm1d(64)
+        self.conv_3 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
+        self.batch_3 = nn.BatchNorm1d(64)
 
         
 
@@ -149,7 +149,7 @@ class Backbone(nn.Module):
         # GROUND LEVEL FORWARD
         features = self.batch_1(F.relu(self.conv_1(tensor_list.tensors)))
         features = self.batch_2(F.relu(self.conv_2(features)))
-        #features = self.batch_3(F.relu(self.conv_3(features)))
+        features = self.batch_3(F.relu(self.conv_3(features)))
 
         
         #xs = self.body(tensor_list.tensors)
