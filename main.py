@@ -34,7 +34,7 @@ def get_args_parser():
     parser.add_argument('--lr_backbone', default=1e-4, type=float)
     parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--weight_decay', default=0, type=float)
-    parser.add_argument('--epochs', default=150, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--lr_drop', default=160, type=int)
     parser.add_argument('--clip_max_norm', default=0, type=float,
                         help='gradient clipping max norm')
@@ -63,7 +63,7 @@ def get_args_parser():
                         help="Dropout applied in the transformer")
     parser.add_argument('--nheads', default=4, type=int,
                         help="Number of attention heads inside the transformer's attentions")
-    parser.add_argument('--num_queries', default=30, type=int,
+    parser.add_argument('--num_queries', default=15, type=int,
                         help="Number of query slots")
     parser.add_argument('--pre_norm', action='store_true')
 
@@ -252,7 +252,7 @@ def main(args):
 
         #print(f1_df)        
         #lr_scheduler.step()
-        if epoch == 70:
+        if epoch == 60:
             # Lr transformer
             optimizer.param_groups[0]['lr'] = 1e-4
             # Lr backbone
@@ -260,7 +260,7 @@ def main(args):
             print("LR of model changed to ", optimizer.param_groups[0]['lr'])
             print("LR of backbone changed to ", optimizer.param_groups[1]['lr'])
         
-        if epoch == 120:
+        if epoch == 80:
             # Lr transformer
             optimizer.param_groups[0]['lr'] = 1e-5
             # Lr backbone
