@@ -89,7 +89,7 @@ def get_args_parser():
     parser.add_argument('--cls_loss_coef', default=2, type=float)
     parser.add_argument('--bbox_loss_coef', default=5, type=float)
     parser.add_argument('--giou_loss_coef', default=2, type=float)
-    parser.add_argument('--focal_alpha', default=0.25, type=float)
+    parser.add_argument('--focal_alpha', default=0.8, type=float)
 
     # dataset parameters
     parser.add_argument('--dataset_file', default='coco')
@@ -170,8 +170,8 @@ def main(args):
     #dataset_train, dataset_val = torch.utils.data.random_split(dataset, [train_size,val_size])
     #dataset_val = dataset_train
 
-    dataset_train = dreams_dataset(input_path = '/scratch/s174411/no_reref_30_val/TRAIN/input/', label_path = '/scratch/s174411/no_reref_30_val/TRAIN/labels/')
-    dataset_val = dreams_dataset(input_path = '/scratch/s174411/no_reref_30_val/VAL/input/', label_path = '/scratch/s174411/no_reref_30_val/VAL/labels/')
+    dataset_train = dreams_dataset(input_path = '/scratch/s174411/train_val_test_30/TRAIN/input/', label_path = '/scratch/s174411/train_val_test_30/TRAIN/labels/')
+    dataset_val = dreams_dataset(input_path = '/scratch/s174411/train_val_test_30/VAL/input/', label_path = '/scratch/s174411/train_val_test_30/VAL/labels/')
     #dataset_val = dataset_train
 
     output_dir = Path(args.output_dir)

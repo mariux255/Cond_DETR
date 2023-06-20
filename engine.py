@@ -199,10 +199,10 @@ def pred_stats(outputs, targets):
                 out_box_start = out_box[0] - out_box[1]/2
                 out_box_end = out_box[0] + out_box[1]/2
 
-                if iou(out_box, tar_box) > iou(kept_boxes[best_match], tar_box):
+                if overlap(out_box, tar_box) > overlap(kept_boxes[best_match], tar_box):
                     best_match = j
             
-            if iou(kept_boxes[best_match],tar_box) > 0.2:
+            if overlap(kept_boxes[best_match],tar_box) > 0.2:
                 TP +=1            
 
         # FP = total_pred_count - TP
