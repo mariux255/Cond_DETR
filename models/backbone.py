@@ -94,6 +94,8 @@ class Backbone(nn.Module):
 
         self.conv_1_5 = nn.Conv1d(16, 16, kernel_size = 5, dilation = 1, padding = 'same')
         self.batch_1_5 = nn.GroupNorm(n_groups, 16)
+
+        self.conv_1_6 = nn.Conv1d(16,2, kernel_size = 1, dilation = 1)
         
 
         self.num_channels = 16
@@ -216,6 +218,7 @@ def build_backbone(args):
     return_interm_layers = args.masks
     #backbone = Backbone(args.backbone, train_backbone, return_interm_layers, args.dilation)
     backbone = Backbone()
+    backbone.load_state_dict(torch.load('/home/s174411/code/Cond_DETR/models/sumo_state_dict.pt'))
     model = Joiner(backbone, position_embedding)
     #model.num_channels = backbone.num_channels
     model.num_channels = 16
