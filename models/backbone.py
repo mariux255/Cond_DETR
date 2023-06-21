@@ -124,43 +124,43 @@ class Backbone(nn.Module):
         return out
 
 
-class Backbone(nn.Module):
-    def __init__(self):
-        super().__init__()
-        n_groups = 8
+# class Backbone(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         n_groups = 8
         
-        # ENCODER GROUND LEVEL (LEVEL 1)
-        self.conv_1 = nn.Conv1d(1, 64, kernel_size = 3, dilation = 1)
-        self.batch_1 = nn.BatchNorm1d(64)
+#         # ENCODER GROUND LEVEL (LEVEL 1)
+#         self.conv_1 = nn.Conv1d(1, 64, kernel_size = 3, dilation = 1)
+#         self.batch_1 = nn.BatchNorm1d(64)
 
-        self.conv_2 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
-        self.batch_2 = nn.BatchNorm1d(64)
+#         self.conv_2 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
+#         self.batch_2 = nn.BatchNorm1d(64)
 
-        self.conv_3 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
-        self.batch_3 = nn.BatchNorm1d(64)
-
-        
-
-        self.num_channels = 64
-
-
-
-    def forward(self, tensor_list: NestedTensor):
-        # GROUND LEVEL FORWARD
-        features = self.batch_1(F.relu(self.conv_1(tensor_list.tensors)))
-        features = self.batch_2(F.relu(self.conv_2(features)))
-        features = self.batch_3(F.relu(self.conv_3(features)))
+#         self.conv_3 = nn.Conv1d(64, 64, kernel_size = 3, dilation = 1)
+#         self.batch_3 = nn.BatchNorm1d(64)
 
         
-        #xs = self.body(tensor_list.tensors)
-        out: Dict[str, NestedTensor] = {}
+
+#         self.num_channels = 64
+
+
+
+#     def forward(self, tensor_list: NestedTensor):
+#         # GROUND LEVEL FORWARD
+#         features = self.batch_1(F.relu(self.conv_1(tensor_list.tensors)))
+#         features = self.batch_2(F.relu(self.conv_2(features)))
+#         features = self.batch_3(F.relu(self.conv_3(features)))
+
         
-        x = features[:,:,None,:]
-        m = tensor_list.mask
-        assert m is not None
-        mask = F.interpolate(m[None].float(), size=x.shape[-1:]).to(torch.bool)[0]
-        out['CNN_OUT'] = NestedTensor(x, mask)
-        return out
+#         #xs = self.body(tensor_list.tensors)
+#         out: Dict[str, NestedTensor] = {}
+        
+#         x = features[:,:,None,:]
+#         m = tensor_list.mask
+#         assert m is not None
+#         mask = F.interpolate(m[None].float(), size=x.shape[-1:]).to(torch.bool)[0]
+#         out['CNN_OUT'] = NestedTensor(x, mask)
+#         return out
 
 
 class building_block(nn.Module):
@@ -184,5 +184,5 @@ def build_backbone(args):
     backbone = Backbone()
     model = Joiner(backbone, position_embedding)
     #model.num_channels = backbone.num_channels
-    model.num_channels = 64
+    model.num_channels = 32
     return model
