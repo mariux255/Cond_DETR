@@ -59,7 +59,7 @@ def get_args_parser():
                         help="Intermediate size of the feedforward layers in the transformer blocks")
     parser.add_argument('--hidden_dim', default=16, type=int,
                         help="Size of the embeddings (dimension of the transformer)")
-    parser.add_argument('--dropout', default=0, type=float,
+    parser.add_argument('--dropout', default=0.1, type=float,
                         help="Dropout applied in the transformer")
     parser.add_argument('--nheads', default=4, type=int,
                         help="Number of attention heads inside the transformer's attentions")
@@ -96,8 +96,8 @@ def get_args_parser():
     parser.add_argument('--coco_path', type=str)
     parser.add_argument('--coco_panoptic_path', type=str)
     parser.add_argument('--remove_difficult', action='store_true')
-    #/home/s174411/code/Cond_DETR/logs
-    parser.add_argument('--output_dir', default='',
+
+    parser.add_argument('--output_dir', default='/home/s174411/code/Cond_DETR/logs',
                         help='path where to save, empty for no saving')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
